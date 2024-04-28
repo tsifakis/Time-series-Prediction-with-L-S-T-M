@@ -1,0 +1,266 @@
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+import random
+import numpy as np
+import tensorflow as tf
+import matplotlib.pyplot as plt
+
+from sklearn.model_selection import train_test_split
+from sklearn.metrics         import mean_squared_error, mean_absolute_error
+from sklearn.metrics         import mean_absolute_percentage_error
+from sklearn.model_selection import TimeSeriesSplit
+from sklearn.metrics         import r2_score
+from sklearn.metrics         import median_absolute_error
+from sklearn.preprocessing   import StandardScaler
+
+
+from tensorflow.keras.models       import Sequential
+from tensorflow.keras.models       import Model, load_model
+from tensorflow.keras.layers       import LSTM, Dropout, Dense, Input
+from tensorflow.keras.callbacks    import EarlyStopping, ReduceLROnPlateau
+from tensorflow.keras              import regularizers
+from tensorflow.keras              import backend as K
+from tensorflow.keras.constraints  import UnitNorm
+from tensorflow.keras.initializers import RandomUniform
+from tensorflow.keras.initializers import GlorotUniform
+from tensorflow.keras.models       import load_model
+from tensorflow.keras.constraints  import MaxNorm
+
+
+from math import sqrt
+from colorama import Fore, Style
+from keras.models import load_model
+np.set_printoptions(precision=2, suppress=True)
+
+#model = load_model('my_best_model4.keras')
+
+seed_value = 1
+tf.random.set_seed(seed_value)
+np.random.seed(seed_value)
+
+dataset_1 = np.array([0.04, 0.1, 0.05, 0.1, 0.07, 0.01, 0.09, 0.04, 0.05, 0.03, 0.05, 0.06, 0.09, 0.1, 0.08, 0.1, 0.09, 0.03, 0.06, 0.07, 0.02, 0.07, 0.06, 0.09, 0.1, 0.07, 0.08, 0.05, 0.09, 0.08, 0.01, 0.01, 0.08, 0.09, 0.06, 0.04, 0.06, 0.08, 0.03, 0.03, 0.08, 0.05, 0.09, 0.09, 0.07, 0.07, 0.1, 0.07, 0.1, 0.03, 0.08, 0.02, 0.04, 0.02, 0.08, 0.02, 0.01, 0.05, 0.05, 0.05, 0.09, 0.01, 0.07, 0.02, 0.1, 0.04, 0.08, 0.09, 0.06, 0.04, 0.03, 0.09, 0.08, 0.07, 0.04, 0.1, 0.02, 0.02, 0.01, 0.06, 0.08, 0.02, 0.08, 0.06, 0.09, 0.09, 0.03, 0.03, 0.07, 0.02, 0.04, 0.03, 0.01, 0.06, 0.1, 0.07, 0.08, 0.06, 0.05, 0.08, 0.04, 0.01, 0.1, 0.01, 0.05, 0.02, 0.08, 0.07, 0.03, 0.05, 0.08, 0.01, 0.06, 0.04, 0.1, 0.05, 0.1, 0.07, 0.06, 0.1, 0.01, 0.09, 0.06, 0.04, 0.06, 0.08, 0.06, 0.02, 0.05, 0.1, 0.09, 0.03, 0.03, 0.01, 0.03, 0.08, 0.1, 0.09, 0.02, 0.05, 0.09, 0.06, 0.03, 0.03, 0.06, 0.07, 0.04, 0.04, 0.05, 0.10, 0.10, 0.09, 0.08, 0.07, 0.09, 0.09, 0.06, 0.03, 0.02, 0.07, 0.09, 0.03, 0.04, 0.09 ])
+dataset_2 = np.diff(dataset_1)
+dataset_3 = np.array([0.08, 0.09, 0.05, 0.06, 0.10, 0.09, 0.02, 0.05, 0.02, 0.07, 0.05, 0.01, 0.10, 0.05, 0.07, 0.06, 0.02, 0.01, 0.02, 0.06, 0.06, 0.06, 0.02, 0.07, 0.07, 0.04, 0.07, 0.09, 0.04, 0.09, 0.02, 0.06, 0.05, 0.03, 0.10, 0.08, 0.05, 0.05, 0.05, 0.05, 0.04, 0.10, 0.01, 0.08, 0.01, 0.07, 0.09, 0.04, 0.05, 0.05, 0.07, 0.09, 0.07, 0.06, 0.09, 0.03, 0.10, 0.04, 0.01, 0.08, 0.07, 0.08, 0.02, 0.01, 0.08, 0.07, 0.04, 0.07, 0.06, 0.04, 0.06, 0.09, 0.04, 0.06, 0.03, 0.06, 0.07, 0.07, 0.07, 0.01, 0.08, 0.01, 0.02, 0.02, 0.10, 0.02, 0.09, 0.01, 0.05, 0.08, 0.02, 0.06, 0.02, 0.02, 0.07, 0.06, 0.07, 0.05, 0.03, 0.10, 0.10, 0.10, 0.03, 0.01, 0.03, 0.03, 0.10, 0.06, 0.01, 0.05, 0.06, 0.01, 0.05, 0.04, 0.08, 0.05, 0.09, 0.06, 0.09, 0.07, 0.09, 0.01, 0.07, 0.09, 0.01, 0.04, 0.05, 0.07, 0.09, 0.02, 0.05, 0.01, 0.05, 0.02, 0.06, 0.02, 0.08, 0.05, 0.10, 0.10, 0.10, 0.04, 0.06, 0.09, 0.10, 0.07, 0.01, 0.03, 0.02, 0.05, 0.05, 0.01, 0.01, 0.03, 0.04, 0.03, 0.08, 0.01, 0.08, 0.01, 0.04, 0.02, 0.06, 0.04, 0.01, 0.03, 0.07, 0.01, 0.09, 0.10, 0.08, 0.07])
+dataset_4 =  np.diff(dataset_3)
+
+datasets = [dataset_1, dataset_2, dataset_3, dataset_4]
+
+look_back = 1
+features = 1
+outputs = 1
+
+all_predictions_1 = []
+
+def prepare_data(dataset, look_back, features, outputs):
+    input_data_X = []
+    output_data_y = []
+    for i in range(len(dataset) - look_back):
+        a = dataset[i:(i + look_back), :features]
+        input_data_X.append(a)
+        output_data_y.append(dataset[i + look_back, :outputs])
+    return np.array(input_data_X), np.array(output_data_y)
+
+for index, dataset in enumerate(datasets):
+    print(f"\n{Fore.YELLOW}Εκπαίδευση και Πρόβλεψη για το σετ δεδομένων :{Style.RESET_ALL}{Fore.BLUE}{index + 1}{Style.RESET_ALL}")
+
+    seed_value = 1
+    tf.random.set_seed(seed_value)
+    np.random.seed(seed_value)
+
+    dataset = dataset.reshape(-1, 1)
+    input_data_X, output_data_y = prepare_data(dataset, look_back, features, outputs)
+
+    split_point = int(len(input_data_X) * 0.8)
+    train_X = input_data_X[:split_point]
+    train_Y = output_data_y[:split_point]
+    val_X = input_data_X[split_point:]
+    val_Y = output_data_y[split_point:]
+
+    train_X = train_X.reshape(train_X.shape[0], look_back, features)
+    train_Y = train_Y.reshape(train_Y.shape[0], outputs)
+    val_X = val_X.reshape(val_X.shape[0], look_back, features)
+    val_Y = val_Y.reshape(val_Y.shape[0], outputs)
+
+    def custom_loss(y_true, y_pred):
+        square_errors = tf.square(y_true - y_pred)
+        mean_square_error = tf.reduce_mean(square_errors)
+        return mean_square_error
+
+
+    input_layer = Input(shape=(look_back, features))
+    lstm1, state_h1, state_c1 = (LSTM(16,
+                                      return_sequences=True,
+                                      return_state=True,
+                                      activation='tanh',
+                                      recurrent_activation='sigmoid',
+                                      use_bias=True,
+                                      unit_forget_bias=True,
+                                      go_backwards=False,
+                                      stateful=False,
+                                      unroll=True,
+                                      implementation=2,
+                                      bias_constraint=       tf.keras.constraints.UnitNorm(axis=0),
+                                      kernel_constraint=     tf.keras.constraints.UnitNorm(axis=0),
+                                      recurrent_constraint=  tf.keras.constraints.UnitNorm(axis=0),
+                                      bias_initializer=      RandomUniform(minval=-0.09, maxval=0.09),
+                                      kernel_initializer=    RandomUniform(minval=-0.09, maxval=0.09),
+                                      recurrent_initializer= RandomUniform(minval=-0.09, maxval=0.09),
+                                      bias_regularizer=      regularizers.l1_l2(l1=0.00000001, l2=0.00000001),
+                                      kernel_regularizer=    regularizers.l1_l2(l1=0.00000001, l2=0.00000001),
+                                      activity_regularizer=  regularizers.l1_l2(l1=0.00000001, l2=0.00000001),
+                                      recurrent_regularizer= regularizers.l1_l2(l1=0.00000001, l2=0.00000001),
+                                      recurrent_dropout=0.0, )
+                                 (input_layer))
+    dropout1 = Dropout(0.0)(lstm1)
+    lstm2, state_h2, state_c2 = (LSTM(16,
+                                      return_sequences=True,
+                                      return_state=True,
+                                      activation='tanh',
+                                      recurrent_activation='sigmoid',
+                                      use_bias=True,
+                                      unit_forget_bias=True,
+                                      go_backwards=False,
+                                      stateful=False,
+                                      unroll=True,
+                                      implementation=2,
+                                      bias_constraint=       tf.keras.constraints.UnitNorm(axis=0),
+                                      kernel_constraint=     tf.keras.constraints.UnitNorm(axis=0),
+                                      recurrent_constraint=  tf.keras.constraints.UnitNorm(axis=0),
+                                      bias_initializer=      RandomUniform(minval=-0.09, maxval=0.09),
+                                      kernel_initializer=    RandomUniform(minval=-0.09, maxval=0.09),
+                                      recurrent_initializer= RandomUniform(minval=-0.09, maxval=0.09),
+                                      bias_regularizer=      regularizers.l1_l2(l1=0.00000001, l2=0.00000001),
+                                      kernel_regularizer=    regularizers.l1_l2(l1=0.00000001, l2=0.00000001),
+                                      activity_regularizer=  regularizers.l1_l2(l1=0.00000001, l2=0.00000001),
+                                      recurrent_regularizer= regularizers.l1_l2(l1=0.00000001, l2=0.00000001),
+                                      recurrent_dropout=0.0, )
+                                 (dropout1, initial_state=[state_h1, state_c1]))
+    dropout2 = Dropout(0.0)(lstm2)
+    lstm3, state_h3, state_c3 = (LSTM(16,
+                                      return_sequences=True,
+                                      return_state=True,
+                                      activation='tanh',
+                                      recurrent_activation='sigmoid',
+                                      use_bias=True,
+                                      unit_forget_bias=True,
+                                      go_backwards=False,
+                                      stateful=False,
+                                      unroll=True,
+                                      implementation=2,
+                                      bias_constraint=       tf.keras.constraints.UnitNorm(axis=0),
+                                      kernel_constraint=     tf.keras.constraints.UnitNorm(axis=0),
+                                      recurrent_constraint=  tf.keras.constraints.UnitNorm(axis=0),
+                                      bias_initializer=      RandomUniform(minval=-0.09, maxval=0.09),
+                                      kernel_initializer=    RandomUniform(minval=-0.09, maxval=0.09),
+                                      recurrent_initializer= RandomUniform(minval=-0.09, maxval=0.09),
+                                      bias_regularizer=      regularizers.l1_l2(l1=0.00000001, l2=0.00000001),
+                                      kernel_regularizer=    regularizers.l1_l2(l1=0.00000001, l2=0.00000001),
+                                      activity_regularizer=  regularizers.l1_l2(l1=0.00000001, l2=0.00000001),
+                                      recurrent_regularizer= regularizers.l1_l2(l1=0.00000001, l2=0.00000001),
+                                      recurrent_dropout=0.0, )
+                                 (dropout2, initial_state=[state_h2, state_c2]))
+    dropout3 = Dropout(0.0)(lstm3)
+    output_layer = (Dense(1,
+                          activation='tanh',
+                          use_bias=True,
+                          bias_initializer=     RandomUniform(minval=-0.09, maxval=0.09),
+                          kernel_initializer=   RandomUniform(minval=-0.09, maxval=0.09),
+                          bias_constraint=      tf.keras.constraints.UnitNorm(axis=0),
+                          kernel_constraint=    tf.keras.constraints.UnitNorm(axis=0),
+                          bias_regularizer=     regularizers.l1_l2(l1=0.00000001, l2=0.00000001),
+                          activity_regularizer= regularizers.l1_l2(l1=0.00000001, l2=0.00000001),
+                          kernel_regularizer=   regularizers.l1_l2(l1=0.00000001, l2=0.00000001), )
+                    (dropout3))
+    model = Model(inputs=input_layer, outputs=output_layer)
+
+    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001), loss=custom_loss,
+                  metrics=[tf.keras.metrics.MeanSquaredError(),
+                           tf.keras.metrics.MeanAbsoluteError(),
+                           tf.keras.metrics.MeanAbsolutePercentageError()])
+
+    early_stopping = EarlyStopping(monitor='val_loss', patience=70, verbose=2, mode='min', restore_best_weights=True)
+    reduce_lr = ReduceLROnPlateau( monitor='val_loss', patience=60, verbose=2, mode='min', factor=0.01, min_lr=0.0000001)
+    history = model.fit(train_X, train_Y, epochs=670, batch_size=1, verbose=2, validation_data=(val_X, val_Y),
+                        callbacks=[early_stopping, reduce_lr])
+
+    tf.keras.backend.clear_session()
+
+    predictions = model.predict(val_X)
+    predictions = predictions.flatten()
+    val_Y = val_Y.flatten()
+
+    last_value = dataset[-1].reshape((1, 1))
+    last_sequence = np.array([last_value])
+    predicted = model.predict(last_sequence)
+    predicted = predicted.flatten()
+    all_predictions_1.append(predicted)
+
+    print(f"{Fore.BLUE}\nΙστορικό εκπαίδευσης:{Style.RESET_ALL}")
+    for key in history.history.keys():
+        print(f"{Fore.RED}{key}:{Style.RESET_ALL} {history.history[key][-1]}")
+    print()
+
+    #plt.figure(figsize=(14, 8))
+    #plt.plot(val_Y,       label='Actual Values',    color='red',  marker='o', linestyle='--')
+    #plt.plot(predictions, label='Predicted Values', color='blue', marker='o', alpha=0.7)
+    #plt.title(f'Σύγκριση Πραγματικών και Προβλεπόμενων Τιμών dataset {index + 1}')
+    #plt.xlabel(f'Time Steps dataset {index + 1}')
+    #plt.ylabel(f'Values dataset {index + 1}')
+    #plt.legend()
+    #plt.show()
+
+predicted_1 = all_predictions_1[-4]
+predicted_1 = np.clip(predicted_1, 0.01, 0.1)
+
+predicted_2 = all_predictions_1[-3]
+difference2 = dataset_1[-1] + predicted_2
+difference2 = np.clip(difference2, 0.01, 0.1)
+
+predicted_3 = all_predictions_1[-2]
+predicted_3 = np.clip(predicted_3, 0.01, 0.1)
+
+predicted_4 = all_predictions_1[-1]
+difference4 = dataset_3[-1] + predicted_4
+difference4 = np.clip(difference4, 0.01, 0.1)
+
+std_dev_1 = np.random.uniform(0.01, 0.05)
+random_noise_1 = np.random.normal(0.05, std_dev_1, size=predicted_1.shape)
+noise_sign1 = np.random.choice([-1, 1], size=predicted_1.shape)
+predicted_1_with_noise_1 = predicted_1 + (random_noise_1 * noise_sign1)
+predicted_1_with_noise_1 = np.clip(predicted_1_with_noise_1, 0.01, 0.1)
+
+std_dev_2 = np.random.uniform(0.01, 0.05)
+random_noise_2 = np.random.normal(0.05, std_dev_1, size=predicted_3.shape)
+noise_sign2 = np.random.choice([-1, 1], size=predicted_3.shape)
+predicted_3_with_noise_1 = predicted_3 + (random_noise_2 * noise_sign2)
+predicted_3_with_noise_1 = np.clip(predicted_3_with_noise_1, 0.01, 0.1)
+
+predicted_values = [
+    round(predicted_1[0] * 100),
+    round(difference2[0] * 100),
+    round(predicted_3[0] * 100),
+    round(difference4[0] * 100),
+    round(predicted_3_with_noise_1[0] * 100),
+    round(predicted_1_with_noise_1[0] * 100)]
+
+unique_sorted_values = sorted(set(predicted_values))
+
+for index, predicted in enumerate(all_predictions_1):
+    print(f"{Fore.CYAN}Προβλέψεις για το dataset {index + 1}: {Style.RESET_ALL}{predicted}")
+
+print(f"\n{Fore.MAGENTA}Προβλέψεις  καθαρες  για  το dataset 1: {Style.RESET_ALL}{predicted_1}")
+print(f"{Fore.MAGENTA}Προβλέψεις με διαφορα για το dataset 1: {Style.RESET_ALL}{difference2}")
+print(f"{Fore.MAGENTA}Προβλέψεις με τυχαιοτητα για dataset 1: {Style.RESET_ALL}{predicted_1_with_noise_1}")
+
+
+print(f"\n{Fore.MAGENTA}Προβλέψεις  καθαρες   για το dataset 3: {Style.RESET_ALL}{predicted_3}")
+print(f"{Fore.MAGENTA}Προβλέψεις με διαφορα για το dataset 3: {Style.RESET_ALL}{difference4}")
+print(f"{Fore.MAGENTA}Προβλέψεις με τυχαιοτητα για dataset 3: {Style.RESET_ALL}{predicted_3_with_noise_1}")
+
+print(f"\n{Fore.GREEN}   ΟΛΕΣ      ΟΙ      ΠΡΟΒΛΕΨΕΙΣ: {Style.RESET_ALL} {[round(predicted_1[0]*100), round(difference2[0]*100),  round(predicted_1_with_noise_1[0]*100),  round(predicted_3[0]*100), round(difference4[0]*100), round(predicted_3_with_noise_1[0]*100)]}")
+print(f"{Fore.RED}ΤΕΛΕΥΤΑΙΑ ΤΙΜΗ ΑΠΟ ΚΑΘΕ dataset:{Style.RESET_ALL}", dataset_1[-1]*100, dataset_2[-1]*100, dataset_3[-1]*100, dataset_4[-1]*100  )
+print()
+print()
+print(f"\n{Fore.BLUE} ΟΛΕΣ ΟΙ ΕΠΟΜΕΝΕΣ ΘΕΡΜΟΚΡΑΣΙΕΣ: {Style.RESET_ALL}{Fore.YELLOW}{unique_sorted_values}{Style.RESET_ALL}")
+print()
+
